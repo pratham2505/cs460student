@@ -1,0 +1,1629 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CS460 Assignment 2 - XTK 3D Cube Art & Animation Studio (Agent Snapshot)</title>
+    
+    <style>
+      :root {
+        --bg-color: #050811;
+        --card-bg: rgba(13, 22, 41, 0.75);
+        --card-border: rgba(56, 189, 248, 0.25);
+        --accent-cyan: #06b6d4;
+        --accent-glow: rgba(6, 182, 212, 0.4);
+        --accent-pink: #ec4899;
+        --accent-amber: #f59e0b;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        background-color: var(--bg-color);
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        overflow: hidden !important;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        color: var(--text-primary);
+        user-select: none;
+      }
+
+      /* XTK Canvas container */
+      canvas {
+        display: block;
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      /* Top-level HUD layer */
+      #hud-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 16px;
+      }
+
+      /* Interactive HUD panels */
+      .hud-panel {
+        pointer-events: auto;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: 12px;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 16px rgba(6, 182, 212, 0.1);
+        padding: 12px 16px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+
+      .hud-panel:hover {
+        border-color: rgba(56, 189, 248, 0.5);
+      }
+
+      /* Top Bar */
+      #top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .brand-badge {
+        background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+        color: #fff;
+        font-weight: 800;
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 6px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+
+      .brand-title {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        background: linear-gradient(90deg, #38bdf8, #c084fc);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .stats-group {
+        display: flex;
+        gap: 12px;
+        font-size: 13px;
+        color: var(--text-secondary);
+      }
+
+      .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .stat-val {
+        color: var(--accent-cyan);
+        font-weight: 700;
+      }
+
+      /* Main Middle Area (Presets on Left, VFX on Right) */
+      #middle-area {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex: 1;
+        pointer-events: none;
+        margin: 12px 0;
+      }
+
+      .sidebar {
+        pointer-events: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 170px;
+      }
+
+      .sidebar-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-secondary);
+        margin-bottom: 2px;
+        padding-left: 4px;
+      }
+
+      /* Action Buttons */
+      .action-btn {
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 13px;
+        font-weight: 500;
+        padding: 8px 12px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      }
+
+      .action-btn:hover {
+        background: rgba(56, 189, 248, 0.15);
+        border-color: var(--accent-cyan);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px var(--accent-glow);
+      }
+
+      .action-btn:active {
+        transform: translateY(1px);
+      }
+
+      .action-btn.active {
+        background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(168, 85, 247, 0.3));
+        border-color: #38bdf8;
+        box-shadow: 0 0 14px var(--accent-glow);
+      }
+
+      .btn-danger {
+        border-color: rgba(239, 68, 68, 0.3);
+      }
+      .btn-danger:hover {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: #ef4444;
+      }
+
+      /* Bottom Bar */
+      #bottom-bar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+      }
+
+      /* Palette section */
+      .palette-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .palette-swatches {
+        display: flex;
+        gap: 6px;
+      }
+
+      .swatch-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        cursor: pointer;
+        transition: transform 0.15s, border-color 0.15s;
+        padding: 0;
+      }
+
+      .swatch-btn:hover {
+        transform: scale(1.15);
+        border-color: #fff;
+      }
+
+      .swatch-btn.active {
+        transform: scale(1.2);
+        border-color: #fff;
+        box-shadow: 0 0 10px #fff;
+      }
+
+      .active-color-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+        min-width: 90px;
+      }
+
+      /* Controls toolbar */
+      .controls-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* Virtual D-pad mini */
+      .dpad-mini {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 4px 6px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .dpad-btn {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: var(--text-primary);
+        border-radius: 4px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 700;
+        transition: all 0.15s;
+        padding: 0;
+      }
+
+      .dpad-btn:hover {
+        background: var(--accent-cyan);
+        color: #000;
+      }
+
+      /* Notification Toast */
+      #toast {
+        position: absolute;
+        bottom: 96px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid var(--accent-cyan);
+        color: var(--text-primary);
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px 18px;
+        border-radius: 30px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 0 0 12px var(--accent-glow);
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 1000;
+        text-align: center;
+      }
+
+      #toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      /* Modal Dialog */
+      #help-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+      }
+
+      #help-modal.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .modal-content {
+        background: #0b1329;
+        border: 1px solid rgba(56, 189, 248, 0.4);
+        border-radius: 16px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 85vh;
+        overflow-y: auto;
+        padding: 24px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(6, 182, 212, 0.2);
+        color: var(--text-primary);
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+      }
+
+      .modal-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #38bdf8;
+      }
+
+      .close-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 20px;
+        cursor: pointer;
+        padding: 4px;
+      }
+
+      .close-btn:hover {
+        color: #fff;
+      }
+
+      .key-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .key-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      kbd {
+        background: #1e293b;
+        border: 1px solid #475569;
+        box-shadow: 0 2px 0 #0f172a;
+        color: #38bdf8;
+        font-family: monospace;
+        font-size: 12px;
+        font-weight: 700;
+        padding: 3px 7px;
+        border-radius: 5px;
+        min-width: 24px;
+        text-align: center;
+      }
+
+      .key-desc {
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      /* Hidden file input */
+      #file-upload-input {
+        display: none;
+      }
+    </style>
+
+    <!-- XTK Framework -->
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+
+    <!-- Embedded Scene Serializer & File Loader Snapshot -->
+    <script type="text/javascript">
+/*
+ * CS460 Assignment 2 - Loader (Snapshot)
+ * Handles serialization (download) and deserialization (upload) of 3D cube scenes.
+ */
+
+// Function to download the scene as a JSON file
+function download() {
+  var ALL_CUBES = [];
+
+  // Determine source of cubes:
+  // Check tracked cubes list or inspect r.Ha (XTK internal scene objects)
+  var sourceList = [];
+  if (window.placedCubes && window.placedCubes.length > 0) {
+    sourceList = window.placedCubes;
+  } else if (window.r && window.r.Ha) {
+    for (var j = 0; j < window.r.Ha.length; j++) {
+      if (window.r.Ha[j] !== window.c) {
+        sourceList.push(window.r.Ha[j]);
+      }
+    }
+  }
+
+  for (var i = 0; i < sourceList.length; i++) {
+    var obj = sourceList[i];
+    if (obj === window.c) continue; // Skip cursor cube
+
+    var color = [obj.color[0], obj.color[1], obj.color[2]];
+    var matrix = Array.from(obj.transform.matrix);
+    ALL_CUBES.push([color, matrix]);
+  }
+
+  // Create JSON output object
+  var out = {};
+  out['cubes'] = ALL_CUBES;
+  out['camera'] = (window.CAMERAS || []).map(function(cam) {
+    return Array.from(cam);
+  });
+
+  // Convert to downloadable data URI
+  var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(out, null, 2));
+  var downloadAnchorNode = document.createElement('a');
+  downloadAnchorNode.setAttribute("href", dataStr);
+  downloadAnchorNode.setAttribute("download", "scene.json");
+  document.body.appendChild(downloadAnchorNode);
+  downloadAnchorNode.click();
+  downloadAnchorNode.remove();
+
+  if (window.showToast) {
+    window.showToast("Scene downloaded (" + ALL_CUBES.length + " cubes, " + (window.CAMERAS ? window.CAMERAS.length : 0) + " cameras)");
+  }
+}
+
+// Function to upload/load a scene JSON file
+function upload(scene) {
+  // If scene is a File object (from file input)
+  if (scene instanceof File) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        var parsed = JSON.parse(e.target.result);
+        parseSceneData(parsed);
+      } catch (err) {
+        console.error("Error parsing JSON file:", err);
+        if (window.showToast) window.showToast("Failed to parse JSON file!", true);
+      }
+    };
+    reader.readAsText(scene);
+    return;
+  }
+
+  // If scene is already a parsed object
+  if (typeof scene === 'object' && scene !== null) {
+    parseSceneData(scene);
+    return;
+  }
+
+  // Otherwise treat as URL string
+  var req = new XMLHttpRequest();
+  req.responseType = 'json';
+  req.open('GET', scene, true);
+  req.onload = function() {
+    if (req.status === 200 || req.status === 0) { // 0 for local files if allowed
+      var loaded = req.response;
+      if (typeof loaded === 'string') {
+        try { loaded = JSON.parse(loaded); } catch (e) {}
+      }
+      if (loaded) {
+        parseSceneData(loaded);
+      } else {
+        console.error("No JSON response received from", scene);
+      }
+    } else {
+      console.warn("XHR failed with status", req.status, "for", scene);
+      // Fallback: If loading local default scene fails due to browser CORS restriction on file://,
+      // try loading from embedded default scene
+      if (window.loadEmbeddedDefaultScene) {
+        window.loadEmbeddedDefaultScene();
+      }
+    }
+  };
+  req.onerror = function(err) {
+    console.warn("XHR network error when loading:", scene, err);
+    if (window.loadEmbeddedDefaultScene) {
+      window.loadEmbeddedDefaultScene();
+    }
+  };
+  try {
+    req.send(null);
+  } catch (e) {
+    console.warn("XHR send exception:", e);
+    if (window.loadEmbeddedDefaultScene) {
+      window.loadEmbeddedDefaultScene();
+    }
+  }
+}
+
+// Helper to parse scene JSON structure and populate the renderer
+function parseSceneData(loaded) {
+  if (!loaded || !loaded['cubes']) {
+    console.error("Invalid scene format:", loaded);
+    if (window.showToast) window.showToast("Invalid scene JSON format!", true);
+    return;
+  }
+
+  // Clear existing placed cubes first
+  if (window.clearAllCubes) {
+    window.clearAllCubes(false); // don't clear camera
+  }
+
+  var count = 0;
+  // Parse cubes
+  for (var i = 0; i < loaded['cubes'].length; i++) {
+    var cubeData = loaded['cubes'][i];
+    var color = cubeData[0];
+    var matrix = cubeData[1];
+
+    var loaded_cube = new X.cube();
+    loaded_cube.color = [color[0], color[1], color[2]];
+    loaded_cube.transform.matrix = new Float32Array(Object.values(matrix));
+    loaded_cube.lengthX = loaded_cube.lengthY = loaded_cube.lengthZ = window.CUBE_SIDELENGTH || 10;
+
+    r.add(loaded_cube);
+    if (window.registerCube) {
+      window.registerCube(loaded_cube);
+    } else if (window.placedCubes) {
+      window.placedCubes.push(loaded_cube);
+    }
+    count++;
+  }
+
+  // Restore camera views
+  if (loaded['camera'] && loaded['camera'].length > 0) {
+    window.CAMERAS = [];
+    for (var c = 0; c < loaded['camera'].length; c++) {
+      window.CAMERAS.push(new Float32Array(Object.values(loaded['camera'][c])));
+    }
+    // Set active camera to first saved view
+    r.camera.view = new Float32Array(window.CAMERAS[0]);
+  }
+
+  if (window.updateStats) window.updateStats();
+  if (window.showToast) {
+    window.showToast("Loaded " + count + " cubes" + (loaded['camera'] ? " & " + loaded['camera'].length + " cameras" : ""));
+  }
+}
+    </script>
+
+    <!-- Embedded Core Application & Visualization Studio Snapshot -->
+    <script type="text/javascript">
+/*
+ * CS460 Assignment 2 - Advanced 3D Cube Art Visualization & Studio (Snapshot)
+ * Powered by XTK (The X Toolkit) WebGL Framework
+ */
+
+// Sidelengths and gap according to assignment specification
+const CUBE_SIDELENGTH = 10;
+const CUBE_SIDELENGTH_PLACE = 10.1;
+const GAP = 2;
+const STEP = CUBE_SIDELENGTH + GAP; // 12 units
+
+// Camera storage array according to assignment specification
+var CAMERAS = [];
+
+// Array tracking all placed cubes
+var placedCubes = [];
+
+// Renderer and interactive cursor cube instances
+var r = null;
+var c = null;
+
+// Interval ID for camera switching (Key V)
+var intervalID = null;
+var currCamIndex = 0;
+
+// Animation & Visualization state
+var animTime = 0;
+var flyingMode = false;
+var waveMode = false;
+var rainbowMode = false;
+var autoOrbit = false;
+var supernovaState = 'idle'; // 'idle', 'exploding', 'reassembling'
+var supernovaFactor = 0; // 0 (normal) to 1 (fully exploded)
+
+// Color palette matching digits 0-9
+const PALETTE = [
+  { name: 'Black',   color: [0, 0, 0] },             // 0
+  { name: 'White',   color: [1, 1, 1] },             // 1
+  { name: 'Red',     color: [1, 0, 0] },             // 2
+  { name: 'Green',   color: [0, 1, 0] },             // 3
+  { name: 'Blue',    color: [0, 0, 1] },             // 4
+  { name: 'Yellow',  color: [1, 1, 0] },             // 5
+  { name: 'Pink',    color: [1, 0, 1] },             // 6
+  { name: 'Cyan',    color: [0, 1, 1] },             // 7
+  { name: 'Orange',  color: [1, 0.65, 0] },          // 8
+  { name: 'Brick',   color: [0.66, 0.3, 0.26] }      // 9
+];
+
+var currentColorIndex = 7; // Default to Cyan
+
+// Helper: Convert HSV to RGB
+function hsvToRgb(h, s, v) {
+  var r, g, b;
+  var i = Math.floor(h * 6);
+  var f = h * 6 - i;
+  var p = v * (1 - s);
+  var q = v * (1 - f * s);
+  var t = v * (1 - (1 - f) * s);
+  switch (i % 6) {
+    case 0: r = v; g = t; b = p; break;
+    case 1: r = q; g = v; b = p; break;
+    case 2: r = p; g = v; b = t; break;
+    case 3: r = p; g = q; b = v; break;
+    case 4: r = t; g = p; b = v; break;
+    case 5: r = v; g = p; b = q; break;
+  }
+  return [r, g, b];
+}
+
+// Register a newly added cube into the animation engine
+function registerCube(cube) {
+  cube.origMatrix = new Float32Array(cube.transform.matrix);
+  cube.origX = cube.transform.matrix[12];
+  cube.origY = cube.transform.matrix[13];
+  cube.origZ = cube.transform.matrix[14];
+  cube.origColor = [cube.color[0], cube.color[1], cube.color[2]];
+
+  // Assign deterministic yet pseudo-random movement seeds
+  var seed = (cube.origX * 73 + cube.origY * 37 + cube.origZ * 19) % 1000;
+  cube.animPhase = (seed / 1000) * Math.PI * 2;
+  cube.flySpeed = 0.6 + ((seed % 100) / 100) * 0.8;
+
+  // Compute radial explosion vector away from center
+  var dist = Math.sqrt(cube.origX * cube.origX + cube.origY * cube.origY + cube.origZ * cube.origZ) || 1;
+  cube.radialDir = [
+    (cube.origX / dist) + (Math.sin(cube.animPhase) * 0.3),
+    (cube.origY / dist) + (Math.cos(cube.animPhase) * 0.3),
+    (cube.origZ / dist) + (Math.sin(cube.animPhase * 2) * 0.3)
+  ];
+  cube.explodeDist = 60 + ((seed % 80));
+
+  placedCubes.push(cube);
+  updateStats();
+}
+
+// Clear all placed cubes from the scene
+function clearAllCubes(clearCameras) {
+  for (var i = 0; i < placedCubes.length; i++) {
+    placedCubes[i].visible = false;
+  }
+  placedCubes = [];
+  if (clearCameras) {
+    CAMERAS = [];
+    if (intervalID !== null) {
+      clearInterval(intervalID);
+      intervalID = null;
+    }
+  }
+  updateStats();
+  showToast("Scene cleared");
+}
+
+// Update UI stats display
+function updateStats() {
+  var countEl = document.getElementById('cube-count');
+  if (countEl) countEl.innerText = placedCubes.length;
+  var camCountEl = document.getElementById('cam-count');
+  if (camCountEl) camCountEl.innerText = CAMERAS.length;
+}
+
+// Display subtle notification toast in the UI
+function showToast(msg, isError) {
+  var toast = document.getElementById('toast');
+  if (!toast) return;
+  toast.innerText = msg;
+  toast.style.backgroundColor = isError ? 'rgba(239, 68, 68, 0.9)' : 'rgba(15, 23, 42, 0.85)';
+  toast.style.borderColor = isError ? '#ef4444' : '#06b6d4';
+  toast.classList.add('show');
+  clearTimeout(toast.hideTimeout);
+  toast.hideTimeout = setTimeout(function() {
+    toast.classList.remove('show');
+  }, 2200);
+}
+
+// Set active drawing color
+function selectColor(index) {
+  if (index < 0 || index >= PALETTE.length) return;
+  currentColorIndex = index;
+  if (c) {
+    c.color = [PALETTE[index].color[0], PALETTE[index].color[1], PALETTE[index].color[2]];
+  }
+  // Update palette active states in DOM
+  for (var i = 0; i < 10; i++) {
+    var btn = document.getElementById('swatch-' + i);
+    if (btn) {
+      if (i === index) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    }
+  }
+  var nameEl = document.getElementById('active-color-name');
+  if (nameEl) nameEl.innerText = PALETTE[index].name + " [" + index + "]";
+}
+
+// Place a cube at the current cursor position
+function dropCube() {
+  if (!c || !r) return;
+  var new_cube = new X.cube();
+  new_cube.color = [c.color[0], c.color[1], c.color[2]];
+  new_cube.transform.matrix = new Float32Array(c.transform.matrix);
+  new_cube.lengthX = new_cube.lengthY = new_cube.lengthZ = CUBE_SIDELENGTH;
+
+  r.add(new_cube);
+  registerCube(new_cube);
+}
+
+// Camera switching logic (standard Assignment 2)
+function switchCamera() {
+  if (CAMERAS.length === 0) return;
+  if (currCamIndex >= CAMERAS.length) {
+    currCamIndex = 0;
+  }
+  r.camera.view = new Float32Array(CAMERAS[currCamIndex]);
+  showToast("Camera View " + (currCamIndex + 1) + " / " + CAMERAS.length);
+  currCamIndex++;
+}
+
+// Toggle camera switching loop (Key V)
+function toggleCameraLoop() {
+  var vBtn = document.getElementById('btn-camera-loop');
+  if (intervalID == null) {
+    if (CAMERAS.length === 0) {
+      showToast("No camera views saved! Press 'C' to save first.", true);
+      return;
+    }
+    intervalID = setInterval(switchCamera, 1000);
+    if (vBtn) vBtn.classList.add('active');
+    showToast("Camera tour started");
+  } else {
+    clearInterval(intervalID);
+    intervalID = null;
+    if (vBtn) vBtn.classList.remove('active');
+    showToast("Camera tour paused");
+  }
+}
+
+// Smooth camera orbit around world Z axis
+function orbitCameraStep(angleRad) {
+  if (!r || !r.camera || !r.camera.view) return;
+  var V = r.camera.view;
+  var cosA = Math.cos(angleRad);
+  var sinA = Math.sin(angleRad);
+
+  // Column-major 4x4 matrix multiplication with R_z(angleRad)
+  for (var row = 0; row < 4; row++) {
+    var v0 = V[row];
+    var v1 = V[row + 4];
+    V[row]     =  cosA * v0 + sinA * v1;
+    V[row + 4] = -sinA * v0 + cosA * v1;
+  }
+}
+
+// Trigger Supernova explosion / reassembly
+function triggerSupernova() {
+  if (supernovaState === 'idle' || supernovaState === 'reassembling') {
+    supernovaState = 'exploding';
+    showToast("Supernova: Cubes exploding into cosmos! 💥");
+  } else {
+    supernovaState = 'reassembling';
+    showToast("Supernova: Magnetic reassembly! 🧲");
+  }
+  updateToggleButtons();
+}
+
+// Toggle flying cubes mode
+function toggleFlying() {
+  flyingMode = !flyingMode;
+  showToast(flyingMode ? "Zero-G Flight Mode ENABLED 🚀" : "Zero-G Flight Mode DISABLED");
+  updateToggleButtons();
+}
+
+// Toggle wave mode
+function toggleWave() {
+  waveMode = !waveMode;
+  showToast(waveMode ? "Wave Ripple ENABLED 🌊" : "Wave Ripple DISABLED");
+  updateToggleButtons();
+}
+
+// Toggle rainbow mode
+function toggleRainbow() {
+  rainbowMode = !rainbowMode;
+  showToast(rainbowMode ? "Rainbow Flow ENABLED 🌈" : "Rainbow Flow DISABLED");
+  updateToggleButtons();
+}
+
+// Toggle camera auto-orbit
+function toggleOrbit() {
+  autoOrbit = !autoOrbit;
+  showToast(autoOrbit ? "Auto-Orbit ENABLED 🛸" : "Auto-Orbit DISABLED");
+  updateToggleButtons();
+}
+
+// Update DOM button active classes
+function updateToggleButtons() {
+  var flyBtn = document.getElementById('btn-toggle-fly');
+  if (flyBtn) flyBtn.classList.toggle('active', flyingMode);
+
+  var waveBtn = document.getElementById('btn-toggle-wave');
+  if (waveBtn) waveBtn.classList.toggle('active', waveMode);
+
+  var rainbowBtn = document.getElementById('btn-toggle-rainbow');
+  if (rainbowBtn) rainbowBtn.classList.toggle('active', rainbowMode);
+
+  var orbitBtn = document.getElementById('btn-toggle-orbit');
+  if (orbitBtn) orbitBtn.classList.toggle('active', autoOrbit);
+
+  var novaBtn = document.getElementById('btn-supernova');
+  if (novaBtn) {
+    if (supernovaState === 'exploding') {
+      novaBtn.classList.add('active');
+      novaBtn.innerText = "🧲 Reassemble";
+    } else {
+      novaBtn.classList.remove('active');
+      novaBtn.innerText = "💥 Supernova";
+    }
+  }
+}
+
+// ---------------------------------------------------------
+// Art Presets Generators
+// ---------------------------------------------------------
+
+function loadPreset(name) {
+  clearAllCubes(false);
+  CAMERAS = [];
+
+  switch (name) {
+    case 'dna':
+      buildDnaHelix();
+      break;
+    case 'city':
+      buildCyberCity();
+      break;
+    case 'wave':
+      buildWaveOcean();
+      break;
+    case 'galaxy':
+      buildGalaxySpiral();
+      break;
+    case 'heart':
+      buildVoxelHeart();
+      break;
+    case 'torus':
+      buildTorus();
+      break;
+    default:
+      buildDnaHelix();
+      break;
+  }
+
+  // Pre-seed some dramatic camera views for the preset
+  CAMERAS.push(new Float32Array(r.camera.view));
+
+  // Store a second slightly elevated/rotated view
+  orbitCameraStep(Math.PI / 3);
+  CAMERAS.push(new Float32Array(r.camera.view));
+
+  // Store a third view
+  orbitCameraStep(Math.PI / 3);
+  CAMERAS.push(new Float32Array(r.camera.view));
+
+  // Reset back to initial
+  r.camera.view = new Float32Array(CAMERAS[0]);
+  currCamIndex = 0;
+  updateStats();
+}
+
+// Helper to spawn a cube at specific coordinate and color
+function spawnCubeAt(x, y, z, color) {
+  var cube = new X.cube();
+  cube.color = [color[0], color[1], color[2]];
+  cube.transform.translateX(x);
+  cube.transform.translateY(y);
+  cube.transform.translateZ(z);
+  cube.lengthX = cube.lengthY = cube.lengthZ = CUBE_SIDELENGTH;
+  r.add(cube);
+  registerCube(cube);
+  return cube;
+}
+
+// Preset 1: Cosmic DNA Helix
+function buildDnaHelix() {
+  var radius = 36;
+  var turns = 3;
+  var totalSteps = 42;
+  var heightRange = 180;
+  var startZ = -heightRange / 2;
+
+  for (var i = 0; i <= totalSteps; i++) {
+    var progress = i / totalSteps;
+    var theta = progress * Math.PI * 2 * turns;
+    var z = startZ + progress * heightRange;
+
+    var x1 = Math.round((radius * Math.cos(theta)) / STEP) * STEP;
+    var y1 = Math.round((radius * Math.sin(theta)) / STEP) * STEP;
+    var x2 = -x1;
+    var y2 = -y1;
+
+    // Strand 1: Cyan to Blue
+    var c1 = [0, 1 - progress * 0.5, 1];
+    spawnCubeAt(x1, y1, z, c1);
+
+    // Strand 2: Magenta to Pink
+    var c2 = [1, 0, 1 - progress * 0.4];
+    spawnCubeAt(x2, y2, z, c2);
+
+    // Connecting base-pair rungs every 3rd step
+    if (i % 3 === 0) {
+      var rungs = 3;
+      for (var k = 1; k <= rungs; k++) {
+        var t = k / (rungs + 1);
+        var rx = Math.round((x1 + (x2 - x1) * t) / STEP) * STEP;
+        var ry = Math.round((y1 + (y2 - y1) * t) / STEP) * STEP;
+        var rungColor = (i % 6 === 0) ? [1, 0.85, 0] : [0, 1, 0]; // Yellow or Green
+        spawnCubeAt(rx, ry, z, rungColor);
+      }
+    }
+  }
+  showToast("Loaded: Cosmic DNA Helix (Dual Strand)");
+}
+
+// Preset 2: Cyberpunk Metropolis
+function buildCyberCity() {
+  // Central Tower
+  for (var z = 0; z < 10; z++) {
+    var height = z * STEP;
+    var cColor = (z >= 8) ? [0, 1, 1] : (z % 2 === 0 ? [0.66, 0.3, 0.26] : [0, 0, 0]);
+    spawnCubeAt(0, 0, height, cColor);
+    if (z < 6) {
+      spawnCubeAt(STEP, 0, height, [0.2, 0.2, 0.2]);
+      spawnCubeAt(-STEP, 0, height, [0.2, 0.2, 0.2]);
+      spawnCubeAt(0, STEP, height, [0.2, 0.2, 0.2]);
+      spawnCubeAt(0, -STEP, height, [0.2, 0.2, 0.2]);
+    }
+  }
+  // Antenna needle
+  spawnCubeAt(0, 0, 10 * STEP, [1, 0, 0]);
+  spawnCubeAt(0, 0, 11 * STEP, [1, 1, 1]);
+
+  // Satellite Towers
+  var offsets = [
+    [-3 * STEP, -3 * STEP],
+    [3 * STEP, -3 * STEP],
+    [-3 * STEP, 3 * STEP],
+    [3 * STEP, 3 * STEP]
+  ];
+
+  offsets.forEach(function(pos, idx) {
+    var towerH = 5 + (idx % 3);
+    for (var tz = 0; tz < towerH; tz++) {
+      var col = (tz === towerH - 1) ? [1, 0.65, 0] : [0.15, 0.15, 0.15];
+      spawnCubeAt(pos[0], pos[1], tz * STEP, col);
+    }
+    // Skybridge to center at tier 3
+    var midX = Math.round(pos[0] / 2 / STEP) * STEP;
+    var midY = Math.round(pos[1] / 2 / STEP) * STEP;
+    spawnCubeAt(midX, midY, 3 * STEP, [0, 1, 1]);
+  });
+
+  showToast("Loaded: Cyberpunk Metropolis & Skybridges");
+}
+
+// Preset 3: Undulating Voxel Wave Ocean
+function buildWaveOcean() {
+  var size = 9;
+  var half = Math.floor(size / 2);
+
+  for (var ix = -half; ix <= half; ix++) {
+    for (var iy = -half; iy <= half; iy++) {
+      var x = ix * STEP;
+      var y = iy * STEP;
+      var dist = Math.sqrt(ix * ix + iy * iy);
+      var heightLevel = Math.round(Math.sin(dist * 0.7) * 2);
+      var z = heightLevel * STEP;
+
+      var col;
+      if (heightLevel >= 1) col = [0, 1, 1]; // Peak cyan
+      else if (heightLevel === 0) col = [0, 0.5, 1]; // Ocean blue
+      else col = [0.1, 0.1, 0.6]; // Deep trench
+
+      spawnCubeAt(x, y, z, col);
+    }
+  }
+  showToast("Loaded: Undulating Voxel Wave Surface");
+}
+
+// Preset 4: Quantum Spiral Galaxy
+function buildGalaxySpiral() {
+  var arms = 3;
+  var cubesPerArm = 22;
+  var a = 8;
+  var b = 0.22;
+
+  // Center supermassive core
+  spawnCubeAt(0, 0, 0, [1, 1, 1]);
+  spawnCubeAt(STEP, 0, 0, [1, 1, 0]);
+  spawnCubeAt(-STEP, 0, 0, [1, 1, 0]);
+  spawnCubeAt(0, STEP, 0, [1, 1, 0]);
+  spawnCubeAt(0, -STEP, 0, [1, 1, 0]);
+
+  for (var arm = 0; arm < arms; arm++) {
+    var armAngleOffset = (arm * Math.PI * 2) / arms;
+    for (var i = 1; i <= cubesPerArm; i++) {
+      var theta = i * 0.32;
+      var rVal = a * Math.exp(b * theta) + (i * 2);
+      var totalAngle = theta + armAngleOffset;
+
+      var x = Math.round((rVal * Math.cos(totalAngle)) / STEP) * STEP;
+      var y = Math.round((rVal * Math.sin(totalAngle)) / STEP) * STEP;
+      var z = Math.round(Math.sin(theta * 1.5) * STEP);
+
+      var progress = i / cubesPerArm;
+      var col;
+      if (progress < 0.3) col = [1, 0.85, 0]; // Warm gold core
+      else if (progress < 0.7) col = [1, 0, 1]; // Magenta middle
+      else col = [0, 1, 1]; // Cyan outer fringe
+
+      spawnCubeAt(x, y, z, col);
+    }
+  }
+  showToast("Loaded: Quantum Spiral Galaxy (3-Arm Vortex)");
+}
+
+// Preset 5: 3D Retro Voxel Heart
+function buildVoxelHeart() {
+  // A stepped 3D heart layer-by-layer
+  var heartShape = [
+    // z = 2 (top lobes)
+    { x: -1, y: 1, z: 2, c: [1, 0, 0.4] },
+    { x: -2, y: 1, z: 2, c: [1, 0, 0.4] },
+    { x: 1, y: 1, z: 2, c: [1, 0, 0.4] },
+    { x: 2, y: 1, z: 2, c: [1, 0, 0.4] },
+
+    // z = 1 (wide chest)
+    { x: -3, y: 0, z: 1, c: [1, 0, 0] },
+    { x: -2, y: 0, z: 1, c: [1, 0, 0] },
+    { x: -1, y: 0, z: 1, c: [1, 0.2, 0.2] },
+    { x: 0, y: 0, z: 1, c: [1, 0.8, 0.8] }, // highlight core
+    { x: 1, y: 0, z: 1, c: [1, 0.2, 0.2] },
+    { x: 2, y: 0, z: 1, c: [1, 0, 0] },
+    { x: 3, y: 0, z: 1, c: [1, 0, 0] },
+
+    { x: -2, y: 1, z: 1, c: [1, 0, 0] },
+    { x: -1, y: 1, z: 1, c: [1, 0, 0] },
+    { x: 0, y: 1, z: 1, c: [1, 0, 0] },
+    { x: 1, y: 1, z: 1, c: [1, 0, 0] },
+    { x: 2, y: 1, z: 1, c: [1, 0, 0] },
+
+    { x: -2, y: -1, z: 1, c: [0.8, 0, 0] },
+    { x: -1, y: -1, z: 1, c: [0.8, 0, 0] },
+    { x: 0, y: -1, z: 1, c: [0.8, 0, 0] },
+    { x: 1, y: -1, z: 1, c: [0.8, 0, 0] },
+    { x: 2, y: -1, z: 1, c: [0.8, 0, 0] },
+
+    // z = 0 (tapering)
+    { x: -2, y: 0, z: 0, c: [0.8, 0, 0] },
+    { x: -1, y: 0, z: 0, c: [0.9, 0, 0] },
+    { x: 0, y: 0, z: 0, c: [1, 0, 0] },
+    { x: 1, y: 0, z: 0, c: [0.9, 0, 0] },
+    { x: 2, y: 0, z: 0, c: [0.8, 0, 0] },
+
+    { x: -1, y: -1, z: 0, c: [0.7, 0, 0] },
+    { x: 0, y: -1, z: 0, c: [0.7, 0, 0] },
+    { x: 1, y: -1, z: 0, c: [0.7, 0, 0] },
+
+    // z = -1 (point)
+    { x: -1, y: 0, z: -1, c: [0.7, 0, 0] },
+    { x: 0, y: 0, z: -1, c: [0.8, 0, 0] },
+    { x: 1, y: 0, z: -1, c: [0.7, 0, 0] },
+
+    // z = -2 (tip)
+    { x: 0, y: 0, z: -2, c: [0.6, 0, 0] }
+  ];
+
+  heartShape.forEach(function(pt) {
+    spawnCubeAt(pt.x * STEP, pt.y * STEP, pt.z * STEP, pt.c);
+  });
+  showToast("Loaded: 3D Crimson Voxel Heart ❤️");
+}
+
+// Preset 6: Sacred Mobius Torus
+function buildTorus() {
+  var majorRadius = 36;
+  var minorRadius = 16;
+  var majorSegments = 24;
+  var minorSegments = 6;
+
+  for (var i = 0; i < majorSegments; i++) {
+    var u = (i / majorSegments) * Math.PI * 2;
+    for (var j = 0; j < minorSegments; j++) {
+      var v = (j / minorSegments) * Math.PI * 2;
+
+      var x = (majorRadius + minorRadius * Math.cos(v)) * Math.cos(u);
+      var y = (majorRadius + minorRadius * Math.cos(v)) * Math.sin(u);
+      var z = minorRadius * Math.sin(v);
+
+      var sx = Math.round(x / STEP) * STEP;
+      var sy = Math.round(y / STEP) * STEP;
+      var sz = Math.round(z / STEP) * STEP;
+
+      var hue = (i / majorSegments);
+      var col = hsvToRgb(hue, 0.85, 0.95);
+      spawnCubeAt(sx, sy, sz, col);
+    }
+  }
+  showToast("Loaded: Sacred Geometric Torus");
+}
+
+// Embedded default fallback in case scene.json cannot be fetched due to file:// CORS
+function loadEmbeddedDefaultScene() {
+  loadPreset('dna');
+}
+
+// ---------------------------------------------------------
+// Main Window Onload Initializer
+// ---------------------------------------------------------
+window.onload = function() {
+  // Create and initialize 3D XTK renderer
+  r = new X.renderer3D();
+  r.init();
+
+  // Create placement/cursor cube with length 10.1
+  c = new X.cube();
+  c.lengthX = c.lengthY = c.lengthZ = CUBE_SIDELENGTH_PLACE;
+  c.color = [PALETTE[currentColorIndex].color[0], PALETTE[currentColorIndex].color[1], PALETTE[currentColorIndex].color[2]];
+  r.add(c);
+
+  // Position camera for good viewing perspective
+  r.camera.position = [0, 0, 260];
+
+  // Initialize render loop
+  r.render();
+
+  // Setup per-frame animation hook in XTK
+  r.onRender = function() {
+    animTime += 0.04;
+
+    // 1. Camera Auto-Orbit
+    if (autoOrbit) {
+      orbitCameraStep(0.008);
+    }
+
+    // 2. Supernova Transition
+    if (supernovaState === 'exploding') {
+      supernovaFactor = Math.min(1, supernovaFactor + 0.025);
+    } else if (supernovaState === 'reassembling') {
+      supernovaFactor = Math.max(0, supernovaFactor - 0.035);
+      if (supernovaFactor === 0) {
+        supernovaState = 'idle';
+        updateToggleButtons();
+      }
+    }
+
+    var hasActiveMotion = flyingMode || waveMode || (supernovaFactor > 0);
+
+    // Animate every placed cube
+    for (var i = 0; i < placedCubes.length; i++) {
+      var cube = placedCubes[i];
+      if (!cube || !cube.transform) continue;
+
+      var posX = cube.origX;
+      var posY = cube.origY;
+      var posZ = cube.origZ;
+
+      // Supernova explosion offset
+      if (supernovaFactor > 0) {
+        var ease = Math.sin(supernovaFactor * Math.PI * 0.5);
+        posX += cube.radialDir[0] * cube.explodeDist * ease * 2.5;
+        posY += cube.radialDir[1] * cube.explodeDist * ease * 2.5;
+        posZ += cube.radialDir[2] * cube.explodeDist * ease * 2.5;
+      }
+
+      // Flying zero-g trajectory
+      if (flyingMode) {
+        var spd = cube.flySpeed;
+        var ph = cube.animPhase;
+        posX += 18 * Math.sin(animTime * spd + ph);
+        posY += 18 * Math.cos(animTime * 0.8 * spd + ph * 1.3);
+        posZ += 24 * Math.sin(animTime * 1.2 * spd + ph * 0.7);
+
+        // Spin each flying cube on its local axes
+        cube.transform.rotateX(0.7 * spd);
+        cube.transform.rotateY(0.9 * spd);
+      }
+
+      // Wave ripple oscillation
+      if (waveMode) {
+        var dist = Math.sqrt(cube.origX * cube.origX + cube.origY * cube.origY);
+        posZ += 18 * Math.sin(animTime * 2.5 - dist * 0.08);
+      }
+
+      // Smoothly update position if in motion
+      if (hasActiveMotion) {
+        cube.transform.matrix[12] = posX;
+        cube.transform.matrix[13] = posY;
+        cube.transform.matrix[14] = posZ;
+      } else if (!hasActiveMotion && supernovaState === 'idle') {
+        // Return to anchor position
+        cube.transform.matrix[12] = cube.origX;
+        cube.transform.matrix[13] = cube.origY;
+        cube.transform.matrix[14] = cube.origZ;
+      }
+
+      // Rainbow spectral flow
+      if (rainbowMode) {
+        var hue = (animTime * 0.12 + (cube.origX + cube.origY + cube.origZ) * 0.003) % 1;
+        if (hue < 0) hue += 1;
+        cube.color = hsvToRgb(hue, 0.9, 0.95);
+      } else {
+        cube.color = [cube.origColor[0], cube.origColor[1], cube.origColor[2]];
+      }
+    }
+  };
+
+  // Keyboard Event Handlers according to CS460 Assignment 2
+  window.addEventListener("keydown", function(e) {
+    // Avoid interfering if typing in an input
+    if (e.target && e.target.tagName === 'INPUT') return;
+
+    switch (e.code) {
+      // WASD + QE: Cursor Cube Movement
+      case "KeyD": // Right (-X)
+        c.transform.translateX(-STEP);
+        break;
+      case "KeyA": // Left (+X)
+        c.transform.translateX(STEP);
+        break;
+      case "KeyW": // Up (+Z)
+        c.transform.translateZ(STEP);
+        break;
+      case "KeyS": // Down (-Z)
+        c.transform.translateZ(-STEP);
+        break;
+      case "KeyQ": // Forward (+Y)
+        c.transform.translateY(STEP);
+        break;
+      case "KeyE": // Backward (-Y)
+        c.transform.translateY(-STEP);
+        break;
+
+      // Color selection (Digits 0-9)
+      case "Digit0": selectColor(0); break;
+      case "Digit1": selectColor(1); break;
+      case "Digit2": selectColor(2); break;
+      case "Digit3": selectColor(3); break;
+      case "Digit4": selectColor(4); break;
+      case "Digit5": selectColor(5); break;
+      case "Digit6": selectColor(6); break;
+      case "Digit7": selectColor(7); break;
+      case "Digit8": selectColor(8); break;
+      case "Digit9": selectColor(9); break;
+
+      // Space: Place new cube at cursor
+      case "Space":
+        e.preventDefault();
+        dropCube();
+        break;
+
+      // Serialization (Key O and Key L)
+      case "KeyO":
+        download();
+        break;
+      case "KeyL":
+        upload("scene.json");
+        break;
+
+      // Camera view storage & switching (Key C and Key V)
+      case "KeyC":
+        CAMERAS.push(new Float32Array(r.camera.view));
+        updateStats();
+        showToast("Saved Camera View #" + CAMERAS.length);
+        break;
+      case "KeyV":
+        toggleCameraLoop();
+        break;
+
+      // Extra visualization shortcuts
+      case "KeyF":
+        toggleFlying();
+        break;
+      case "KeyR":
+        toggleRainbow();
+        break;
+      case "KeyM":
+        toggleWave();
+        break;
+      case "KeyT":
+        toggleOrbit();
+        break;
+      case "KeyX":
+        triggerSupernova();
+        break;
+      case "KeyH":
+        toggleHelpModal();
+        break;
+      case "Escape":
+        closeHelpModal();
+        break;
+    }
+  });
+
+  // Setup DOM UI Interactions
+  setupUI();
+
+  // Load initial impressive preset
+  loadPreset('dna');
+};
+
+// Setup user interface listeners and controls
+function setupUI() {
+  // Build color palette buttons in DOM
+  var paletteContainer = document.getElementById('palette-container');
+  if (paletteContainer) {
+    paletteContainer.innerHTML = '';
+    PALETTE.forEach(function(item, idx) {
+      var swatch = document.createElement('button');
+      swatch.id = 'swatch-' + idx;
+      swatch.className = 'swatch-btn' + (idx === currentColorIndex ? ' active' : '');
+      var rgb255 = item.color.map(function(v) { return Math.round(v * 255); }).join(',');
+      swatch.style.backgroundColor = 'rgb(' + rgb255 + ')';
+      swatch.title = item.name + ' [' + idx + ']';
+      swatch.onclick = function() { selectColor(idx); };
+      paletteContainer.appendChild(swatch);
+    });
+  }
+
+  // D-Pad / Movement buttons for touch/mouse
+  var bindBtn = function(id, fn) {
+    var el = document.getElementById(id);
+    if (el) el.onclick = fn;
+  };
+
+  bindBtn('btn-mv-up', function() { c.transform.translateZ(STEP); });
+  bindBtn('btn-mv-down', function() { c.transform.translateZ(-STEP); });
+  bindBtn('btn-mv-left', function() { c.transform.translateX(STEP); });
+  bindBtn('btn-mv-right', function() { c.transform.translateX(-STEP); });
+  bindBtn('btn-mv-fwd', function() { c.transform.translateY(STEP); });
+  bindBtn('btn-mv-back', function() { c.transform.translateY(-STEP); });
+  bindBtn('btn-drop-cube', dropCube);
+
+  // File I/O
+  bindBtn('btn-download', download);
+  bindBtn('btn-upload-default', function() { upload("scene.json"); });
+
+  var fileInput = document.getElementById('file-upload-input');
+  if (fileInput) {
+    fileInput.onchange = function(e) {
+      if (e.target.files && e.target.files[0]) {
+        upload(e.target.files[0]);
+      }
+    };
+  }
+  bindBtn('btn-upload-file', function() {
+    if (fileInput) fileInput.click();
+  });
+
+  // Camera actions
+  bindBtn('btn-save-cam', function() {
+    CAMERAS.push(new Float32Array(r.camera.view));
+    updateStats();
+    showToast("Saved Camera View #" + CAMERAS.length);
+  });
+  bindBtn('btn-camera-loop', toggleCameraLoop);
+
+  // Animation toggles
+  bindBtn('btn-toggle-fly', toggleFlying);
+  bindBtn('btn-toggle-wave', toggleWave);
+  bindBtn('btn-toggle-rainbow', toggleRainbow);
+  bindBtn('btn-toggle-orbit', toggleOrbit);
+  bindBtn('btn-supernova', triggerSupernova);
+
+  // Presets
+  bindBtn('preset-dna', function() { loadPreset('dna'); });
+  bindBtn('preset-city', function() { loadPreset('city'); });
+  bindBtn('preset-wave', function() { loadPreset('wave'); });
+  bindBtn('preset-galaxy', function() { loadPreset('galaxy'); });
+  bindBtn('preset-heart', function() { loadPreset('heart'); });
+  bindBtn('preset-torus', function() { loadPreset('torus'); });
+  bindBtn('btn-clear', function() { clearAllCubes(true); });
+
+  // Help Modal
+  bindBtn('btn-help', toggleHelpModal);
+  bindBtn('btn-close-modal', closeHelpModal);
+  var modalBackdrop = document.getElementById('help-modal');
+  if (modalBackdrop) {
+    modalBackdrop.onclick = function(e) {
+      if (e.target === modalBackdrop) closeHelpModal();
+    };
+  }
+
+  updateStats();
+  selectColor(currentColorIndex);
+}
+
+function toggleHelpModal() {
+  var modal = document.getElementById('help-modal');
+  if (modal) modal.classList.toggle('open');
+}
+
+function closeHelpModal() {
+  var modal = document.getElementById('help-modal');
+  if (modal) modal.classList.remove('open');
+}
+    </script>
+  </head>
+  <body>
+    <!-- Top-level HUD Interface Overlay -->
+    <div id="hud-container">
+      
+      <!-- Top Header Bar -->
+      <div id="top-bar" class="hud-panel">
+        <div class="brand">
+          <span class="brand-badge">CS460</span>
+          <span class="brand-title">XTK 3D Cube Art & Animation Studio</span>
+        </div>
+        <div class="stats-group">
+          <div class="stat-item">
+            <span>Cubes:</span>
+            <span id="cube-count" class="stat-val">0</span>
+          </div>
+          <div class="stat-item">
+            <span>Cameras:</span>
+            <span id="cam-count" class="stat-val">0</span>
+          </div>
+          <button id="btn-help" class="action-btn" style="padding: 4px 10px; font-size: 12px;">
+            ⌨️ Shortcuts
+          </button>
+        </div>
+      </div>
+
+      <!-- Middle Area with Floating Toolbars -->
+      <div id="middle-area">
+        <!-- Left Sidebar: Art Presets -->
+        <div class="sidebar hud-panel">
+          <div class="sidebar-title">Art Presets</div>
+          <button id="preset-dna" class="action-btn">🧬 DNA Helix</button>
+          <button id="preset-city" class="action-btn">🏙️ Cyber City</button>
+          <button id="preset-wave" class="action-btn">🌊 Wave Ocean</button>
+          <button id="preset-galaxy" class="action-btn">🌀 Galaxy Spiral</button>
+          <button id="preset-heart" class="action-btn">❤️ Voxel Heart</button>
+          <button id="preset-torus" class="action-btn">🍩 Sacred Torus</button>
+          <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 4px 0;"></div>
+          <button id="btn-clear" class="action-btn btn-danger">🗑️ Clear Scene</button>
+        </div>
+
+        <!-- Right Sidebar: Animations & Visual Effects -->
+        <div class="sidebar hud-panel">
+          <div class="sidebar-title">Animations & VFX</div>
+          <button id="btn-toggle-fly" class="action-btn">🚀 Flying Cubes (F)</button>
+          <button id="btn-supernova" class="action-btn">💥 Supernova (X)</button>
+          <button id="btn-toggle-wave" class="action-btn">🌊 Wave Ripple (M)</button>
+          <button id="btn-toggle-rainbow" class="action-btn">🌈 Rainbow Flow (R)</button>
+          <button id="btn-toggle-orbit" class="action-btn">🛸 Auto Orbit (T)</button>
+          <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 4px 0;"></div>
+          <button id="btn-save-cam" class="action-btn">📸 Save View (C)</button>
+          <button id="btn-camera-loop" class="action-btn">🎥 Camera Tour (V)</button>
+        </div>
+      </div>
+
+      <!-- Bottom Toolbar Bar -->
+      <div id="bottom-bar" class="hud-panel">
+        <!-- Color Palette -->
+        <div class="palette-box">
+          <div class="sidebar-title" style="margin: 0;">Color [0-9]:</div>
+          <div id="palette-container" class="palette-swatches"></div>
+          <div id="active-color-name" class="active-color-label">Cyan [7]</div>
+        </div>
+
+        <!-- Virtual Movement Controls -->
+        <div class="dpad-mini">
+          <button id="btn-mv-left" class="dpad-btn" title="Left (A)">A</button>
+          <button id="btn-mv-right" class="dpad-btn" title="Right (D)">D</button>
+          <button id="btn-mv-up" class="dpad-btn" title="Up (W)">W</button>
+          <button id="btn-mv-down" class="dpad-btn" title="Down (S)">S</button>
+          <button id="btn-mv-fwd" class="dpad-btn" title="Forward (Q)">Q</button>
+          <button id="btn-mv-back" class="dpad-btn" title="Backward (E)">E</button>
+        </div>
+
+        <!-- Placement & File I/O Actions -->
+        <div class="controls-toolbar">
+          <button id="btn-drop-cube" class="action-btn" style="background: rgba(6, 182, 212, 0.25); border-color: var(--accent-cyan); font-weight: 700;">
+            🟩 Drop Cube (Space)
+          </button>
+          <button id="btn-download" class="action-btn" title="Download scene.json (Key O)">
+            💾 Save (O)
+          </button>
+          <button id="btn-upload-default" class="action-btn" title="Load scene.json (Key L)">
+            📂 Load Default (L)
+          </button>
+          <button id="btn-upload-file" class="action-btn" title="Upload custom JSON file">
+            ⬆️ Upload File
+          </button>
+          <input type="file" id="file-upload-input" accept=".json" />
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast">Welcome to XTK Cube Art Studio</div>
+
+    <!-- Keyboard Shortcuts & Help Modal -->
+    <div id="help-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title">Keyboard & Controls Cheatsheet</div>
+          <button id="btn-close-modal" class="close-btn">&times;</button>
+        </div>
+
+        <p style="font-size: 13px; color: var(--text-secondary); margin-top: 0;">
+          All standard <strong>CS460 Assignment 2</strong> controls are fully supported along with extra creative studio shortcuts:
+        </p>
+
+        <div class="key-grid">
+          <div class="key-card">
+            <kbd>W</kbd> / <kbd>S</kbd>
+            <div class="key-desc">Translate Up / Down (+Z / -Z)</div>
+          </div>
+          <div class="key-card">
+            <kbd>A</kbd> / <kbd>D</kbd>
+            <div class="key-desc">Translate Left / Right (+X / -X)</div>
+          </div>
+          <div class="key-card">
+            <kbd>Q</kbd> / <kbd>E</kbd>
+            <div class="key-desc">Translate Forward / Backward (+Y / -Y)</div>
+          </div>
+          <div class="key-card">
+            <kbd>Space</kbd>
+            <div class="key-desc">Place / Drop Cube at current cursor</div>
+          </div>
+          <div class="key-card">
+            <kbd>0</kbd> - <kbd>9</kbd>
+            <div class="key-desc">Pick color from 10-shade palette</div>
+          </div>
+          <div class="key-card">
+            <kbd>O</kbd>
+            <div class="key-desc">Download scene.json (cubes & camera)</div>
+          </div>
+          <div class="key-card">
+            <kbd>L</kbd>
+            <div class="key-desc">Upload / Load scene.json</div>
+          </div>
+          <div class="key-card">
+            <kbd>C</kbd>
+            <div class="key-desc">Push current camera view matrix</div>
+          </div>
+          <div class="key-card">
+            <kbd>V</kbd>
+            <div class="key-desc">Toggle camera loop tour</div>
+          </div>
+          <div class="key-card">
+            <kbd>F</kbd>
+            <div class="key-desc">Toggle Zero-G Flying Cubes mode</div>
+          </div>
+          <div class="key-card">
+            <kbd>X</kbd>
+            <div class="key-desc">Trigger Supernova explode / reassemble</div>
+          </div>
+          <div class="key-card">
+            <kbd>M</kbd>
+            <div class="key-desc">Toggle Wave Ripple motion</div>
+          </div>
+          <div class="key-card">
+            <kbd>R</kbd>
+            <div class="key-desc">Toggle Rainbow Chromatic flow</div>
+          </div>
+          <div class="key-card">
+            <kbd>T</kbd>
+            <div class="key-desc">Toggle Camera Auto-Orbit</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px; font-size: 12px; color: var(--text-secondary); text-align: center;">
+          Mouse: Click & Drag to rotate scene • Scroll to Zoom • Right-click drag to pan.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
