@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmic Cube · XTK 3D Galaxy Visualization</title>
+    <style>
+        /* ═════════════════════════════════════════════════════════════
+           RESET & FULLSCREEN CANVAS LAYOUT
+           ═════════════════════════════════════════════════════════════ */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #020008;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            color: #f1f5f9;
+            user-select: none;
+            cursor: grab;
+        }
+
+        body:active {
+            cursor: grabbing;
+        }
+
+        /* Layer 0: 2D Procedural Galaxy (Stars, Nebulae, Meteors) */
+        #galaxyCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Layer 1: XTK 3D Cube Canvas Container (Transparent background so galaxy shows through) */
+        #xtk-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            background: transparent;
+        }
+
+        #xtk-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            background: transparent !important;
+        }
+
+        /* Layer 2: Soft Cosmic Ambient Glow Behind / Around Cubes */
+        #glowCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            mix-blend-mode: screen;
+            opacity: 0.55;
+        }
+
+        /* ═════════════════════════════════════════════════════════════
+           COSMIC CUBE HUD & INTERFACE
+           ═════════════════════════════════════════════════════════════ */
+        /* Top Navigation Header */
+        #header {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        .title-glow {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #a855f7 0%, #00f3ff 35%, #ec4899 70%, #ff7700 100%);
+            background-size: 300% 300%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 6s ease infinite;
+            filter: drop-shadow(0 0 16px rgba(168, 85, 247, 0.5));
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .subtitle {
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(224, 231, 255, 0.6);
+            font-weight: 500;
+        }
+
+        /* Top Right Status Badge */
+        #status-pill {
+            position: fixed;
+            top: 26px;
+            right: 28px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(15, 8, 35, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            border-radius: 20px;
+            font-size: 11.5px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: #d8b4fe;
+            pointer-events: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #00f3ff;
+            box-shadow: 0 0 8px #00f3ff;
+            animation: pulseDot 2s infinite ease-in-out;
+        }
+
+        @keyframes pulseDot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        /* Bottom Floating Control Bar (HUD) */
+        #hud {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 24px;
+            background: rgba(12, 6, 28, 0.75);
+            backdrop-filter: blur(16px) saturate(160%);
+            -webkit-backdrop-filter: blur(16px) saturate(160%);
+            border: 1px solid rgba(168, 85, 247, 0.35);
+            border-radius: 18px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(168, 85, 247, 0.15);
+            pointer-events: auto;
+            white-space: nowrap;
+        }
+
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12.5px;
+            color: #cbd5e1;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.15s;
+        }
+
+        .hud-item:hover {
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .hud-item kbd {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 22px;
+            height: 20px;
+            padding: 0 6px;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            font-weight: 700;
+            color: #f3e8ff;
+            background: rgba(168, 85, 247, 0.25);
+            border: 1px solid rgba(168, 85, 247, 0.45);
+            border-radius: 5px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .hud-divider {
+            width: 1px;
+            height: 16px;
+            background: rgba(168, 85, 247, 0.25);
+        }
+
+        /* Toast notifications */
+        #toast {
+            position: fixed;
+            bottom: 84px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            z-index: 20;
+            padding: 8px 18px;
+            background: rgba(22, 12, 46, 0.90);
+            border: 1px solid rgba(0, 243, 255, 0.45);
+            border-radius: 12px;
+            color: #e0f2fe;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 16px rgba(0, 243, 255, 0.25);
+        }
+
+        #toast.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* Loading Screen */
+        #loading {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            background: #030009;
+            transition: opacity 0.6s ease;
+        }
+
+        #loading.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader-ring {
+            width: 52px;
+            height: 52px;
+            border: 3px solid rgba(168, 85, 247, 0.15);
+            border-top: 3px solid #00f3ff;
+            border-right: 3px solid #ec4899;
+            border-radius: 50%;
+            animation: spin 1s cubic-bezier(0.55, 0.15, 0.45, 0.85) infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loader-text {
+            font-size: 13px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #c084fc;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen -->
+    <div id="loading">
+        <div class="loader-ring"></div>
+        <div class="loader-text">Loading XTK Cosmic Visualization…</div>
+    </div>
+
+    <!-- Background Space & Nebula Canvas -->
+    <canvas id="galaxyCanvas"></canvas>
+
+    <!-- XTK 3D Cube Visualization Container -->
+    <div id="xtk-container"></div>
+
+    <!-- Bloom / Aura Post-Process Canvas -->
+    <canvas id="glowCanvas"></canvas>
+
+    <!-- Header -->
+    <div id="header">
+        <h1 class="title-glow">Cosmic Cube</h1>
+        <div class="subtitle">XTK 3D Galaxy Engine · Celestial System</div>
+    </div>
+
+    <!-- Live Status -->
+    <div id="status-pill">
+        <span class="status-dot"></span>
+        <span id="status-text">INITIALIZING</span>
+    </div>
+
+    <!-- Interactive Bottom HUD -->
+    <div id="hud">
+        <div class="hud-item" title="Click and drag to rotate the camera around the cube">
+            <span>🖱️ Drag Orbit</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item" title="Scroll mouse wheel to zoom in or out">
+            <span>🔄 Scroll Zoom</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item" id="btn-rainbow" title="Toggle rainbow spectrum colors">
+            <kbd>R</kbd> <span>Rainbow</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item" id="btn-fly" title="Blast cubes outward and return">
+            <kbd>F</kbd> <span>Fly Outward</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item" id="btn-reset" title="Reset camera and orbital scene">
+            <kbd>Space</kbd> <span>Reset Scene</span>
+        </div>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast"></div>
+
+    <!-- Primary XTK Framework (Official CDN) -->
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js" onerror="window.__xtkLoadFailed=true"></script>
+
+    <script type="text/javascript">
+    /* ═════════════════════════════════════════════════════════════════
+       § 0 — HELPER UTILITIES & COLOR CONVERSIONS
+       ═════════════════════════════════════════════════════════════════ */
+    let toastTimeout = null;
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('visible');
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.classList.remove('visible');
+        }, 1800);
+    }
+
+    // Convert HSV (0..1) to RGB [0..1, 0..1, 0..1]
+    function hsvToRgb(h, s, v) {
+        h = ((h % 1) + 1) % 1;
+        let r, g, b;
+        const i = Math.floor(h * 6);
+        const f = h * 6 - i;
+        const p = v * (1 - s);
+        const q = v * (1 - f * s);
+        const t = v * (1 - (1 - f) * s);
+        switch (i % 6) {
+            case 0: r = v; g = t; b = p; break;
+            case 1: r = q; g = v; b = p; break;
+            case 2: r = p; g = v; b = t; break;
+            case 3: r = p; g = q; b = v; break;
+            case 4: r = t; g = p; b = v; break;
+            case 5: r = v; g = p; b = q; break;
+        }
+        return [r, g, b];
+    }
+
+    /* ═════════════════════════════════════════════════════════════════
+       § 1 — RICH GALAXY, NEBULA & METEOR BACKGROUND (2D Canvas)
+       ═════════════════════════════════════════════════════════════════ */
+    const galaxyCanvas = document.getElementById('galaxyCanvas');
+    const gctx = galaxyCanvas.getContext('2d');
+    let screenW = 0, screenH = 0;
+
+    function resizeCanvases() {
+        screenW = galaxyCanvas.width = window.innerWidth;
+        screenH = galaxyCanvas.height = window.innerHeight;
+        glowCanvas.width = screenW;
+        glowCanvas.height = screenH;
+        initStars();
+    }
+
+    // 1-a: Multi-Tier Twinkling Starfield
+    const STAR_COUNT = 850;
+    let stars = [];
+    function initStars() {
+        stars = [];
+        const starHues = [265, 200, 185, 330, 32, 280, 210];
+        for (let i = 0; i < STAR_COUNT; i++) {
+            stars.push({
+                x: Math.random() * screenW,
+                y: Math.random() * screenH,
+                radius: Math.random() < 0.90 ? (Math.random() * 1.3 + 0.3) : (Math.random() * 2.2 + 1.2),
+                alpha: Math.random() * 0.7 + 0.3,
+                twinkleSpeed: Math.random() * 0.003 + 0.001,
+                phase: Math.random() * Math.PI * 2,
+                hue: starHues[Math.floor(Math.random() * starHues.length)]
+            });
+        }
+    }
+
+    // 1-b: Procedural Nebula Clouds (Pre-baked Offscreen)
+    function createNebulaTexture(colorCenter, colorEdge, size) {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = offCanvas.height = size;
+        const octx = offCanvas.getContext('2d');
+        const grad = octx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+        grad.addColorStop(0, colorCenter);
+        grad.addColorStop(0.48, colorEdge);
+        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        octx.fillStyle = grad;
+        octx.fillRect(0, 0, size, size);
+        return offCanvas;
+    }
+
+    const nebulae = [
+        // Subtle Cosmic Purple Nebula Cloud
+        { img: createNebulaTexture('rgba(168, 85, 247, 0.12)', 'rgba(126, 34, 206, 0.035)', 800), relX: 0.20, relY: 0.30, speed: 0.00015 },
+        // Subtle Celestial Blue Stream
+        { img: createNebulaTexture('rgba(37, 99, 235, 0.11)', 'rgba(14, 116, 144, 0.03)', 720), relX: 0.80, relY: 0.65, speed: 0.00012 },
+        // Subtle Neon Pink / Magenta Cloud
+        { img: createNebulaTexture('rgba(236, 72, 153, 0.11)', 'rgba(190, 24, 93, 0.025)', 750), relX: 0.35, relY: 0.75, speed: 0.00018 },
+        // Electric Cyan Dust Cloud
+        { img: createNebulaTexture('rgba(6, 182, 212, 0.09)', 'rgba(8, 145, 178, 0.02)', 680), relX: 0.65, relY: 0.20, speed: 0.00014 },
+        // Deep Indigo Atmospheric Glow
+        { img: createNebulaTexture('rgba(99, 102, 241, 0.08)', 'rgba(67, 56, 202, 0.02)', 850), relX: 0.85, relY: 0.25, speed: 0.00010 }
+    ];
+
+    // 1-c: Visible Shooting Stars / Meteors
+    const meteors = [];
+    function spawnMeteor() {
+        const startX = Math.random() * screenW * 0.9;
+        const startY = Math.random() * screenH * 0.35;
+        const speed = 7 + Math.random() * 7;
+        const angle = (Math.PI / 4) + (Math.random() - 0.5) * 0.35;
+        const hues = [265, 185, 330, 32, 205]; // Purple, Cyan, Pink, Orange, Blue
+        meteors.push({
+            x: startX,
+            y: startY,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            length: 85 + Math.random() * 115,
+            life: 1.0,
+            decay: 0.012 + Math.random() * 0.012,
+            hue: hues[Math.floor(Math.random() * hues.length)]
+        });
+    }
+
+    // Spawn meteors periodically
+    setInterval(() => {
+        if (Math.random() < 0.65) spawnMeteor();
+    }, 1800);
+
+    // Background Render Loop
+    function renderGalaxyBackground(time) {
+        gctx.clearRect(0, 0, screenW, screenH);
+
+        // Deep cosmos radial gradient background
+        const grad = gctx.createRadialGradient(
+            screenW / 2, screenH / 2, 0,
+            screenW / 2, screenH / 2, Math.max(screenW, screenH) * 0.75
+        );
+        grad.addColorStop(0, '#0c021e');     // Deep indigo-violet center
+        grad.addColorStop(0.45, '#050012');  // Deep cosmic midnight
+        grad.addColorStop(1, '#010005');     // Void black boundary
+        gctx.fillStyle = grad;
+        gctx.fillRect(0, 0, screenW, screenH);
+
+        // Render subtle drifting nebula clouds (behind cubes, not obscuring)
+        for (let i = 0; i < nebulae.length; i++) {
+            const n = nebulae[i];
+            const offsetX = Math.sin(time * n.speed + i * 2) * 35;
+            const offsetY = Math.cos(time * n.speed * 0.8 + i * 1.5) * 25;
+            const drawX = n.relX * screenW - n.img.width / 2 + offsetX;
+            const drawY = n.relY * screenH - n.img.height / 2 + offsetY;
+            gctx.drawImage(n.img, drawX, drawY);
+        }
+
+        // Render starfield with twinkling
+        for (let i = 0; i < stars.length; i++) {
+            const s = stars[i];
+            const flicker = Math.sin(time * s.twinkleSpeed + s.phase) * 0.35 + 0.65;
+            const currentAlpha = s.alpha * flicker;
+
+            gctx.beginPath();
+            gctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+            gctx.fillStyle = `hsla(${s.hue}, 85%, 85%, ${currentAlpha})`;
+            gctx.fill();
+
+            if (s.radius > 1.3) {
+                gctx.beginPath();
+                gctx.arc(s.x, s.y, s.radius * 2.8, 0, Math.PI * 2);
+                gctx.fillStyle = `hsla(${s.hue}, 90%, 75%, ${currentAlpha * 0.15})`;
+                gctx.fill();
+            }
+        }
+
+        // Render shooting stars / meteors
+        for (let i = meteors.length - 1; i >= 0; i--) {
+            const m = meteors[i];
+            m.x += m.vx;
+            m.y += m.vy;
+            m.life -= m.decay;
+
+            if (m.life <= 0) {
+                meteors.splice(i, 1);
+                continue;
+            }
+
+            const tailX = m.x - (m.vx / 8) * m.length;
+            const tailY = m.y - (m.vy / 8) * m.length;
+
+            const mGrad = gctx.createLinearGradient(m.x, m.y, tailX, tailY);
+            mGrad.addColorStop(0, `hsla(${m.hue}, 100%, 94%, ${m.life})`);
+            mGrad.addColorStop(0.3, `hsla(${m.hue}, 100%, 75%, ${m.life * 0.7})`);
+            mGrad.addColorStop(1, `hsla(${m.hue}, 100%, 50%, 0)`);
+
+            gctx.beginPath();
+            gctx.moveTo(m.x, m.y);
+            gctx.lineTo(tailX, tailY);
+            gctx.strokeStyle = mGrad;
+            gctx.lineWidth = 2.2;
+            gctx.stroke();
+
+            // Ionized white-hot head
+            gctx.beginPath();
+            gctx.arc(m.x, m.y, 2.8, 0, Math.PI * 2);
+            gctx.fillStyle = `hsla(${m.hue}, 100%, 96%, ${m.life * 0.9})`;
+            gctx.fill();
+        }
+
+        requestAnimationFrame(renderGalaxyBackground);
+    }
+
+    /* ═════════════════════════════════════════════════════════════════
+       § 2 — AURA & GLOW POST-PROCESS LAYER
+       Paints a vibrant neon cyan/purple/pink halo around the center cube
+       ═════════════════════════════════════════════════════════════════ */
+    const glowCanvas = document.getElementById('glowCanvas');
+    const glowCtx = glowCanvas.getContext('2d');
+
+    function renderGlowLayer(time) {
+        glowCtx.clearRect(0, 0, screenW, screenH);
+
+        // Strong neon cyan/purple/pink glow directly behind the center cube
+        const pulse = Math.sin(time * 0.0022) * 0.12 + 0.88;
+        const cx = screenW / 2;
+        const cy = screenH / 2;
+
+        // Inner hot magenta/pink glow
+        const gradInner = glowCtx.createRadialGradient(cx, cy, 10, cx, cy, 95 * pulse);
+        gradInner.addColorStop(0, 'rgba(236, 72, 153, 0.38)');
+        gradInner.addColorStop(0.55, 'rgba(168, 85, 247, 0.22)');
+        gradInner.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        glowCtx.fillStyle = gradInner;
+        glowCtx.fillRect(0, 0, screenW, screenH);
+
+        // Outer neon cyan/purple aura ring
+        const gradOuter = glowCtx.createRadialGradient(cx, cy, 40, cx, cy, 180 * pulse);
+        gradOuter.addColorStop(0, 'rgba(168, 85, 247, 0.25)');
+        gradOuter.addColorStop(0.5, 'rgba(0, 243, 255, 0.16)');
+        gradOuter.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        glowCtx.fillStyle = gradOuter;
+        glowCtx.fillRect(0, 0, screenW, screenH);
+
+        requestAnimationFrame(renderGlowLayer);
+    }
+
+    /* ═════════════════════════════════════════════════════════════════
+       § 3 — 3D CUBE SCENE ARCHITECTURE (ONE Center Cube + 10 Orbiters)
+       ═════════════════════════════════════════════════════════════════ */
+    let rainbowMode = false;
+    let flyMode = false;
+    let flyPhase = 0;
+    let sceneTime = 0;
+
+    // Palette: Neon Purple, Electric Blue, Cyan, Pink, Orange
+    const NEON_PALETTE = {
+        purple:   [0.72, 0.20, 0.98], // #a855f7
+        cyan:     [0.00, 0.95, 1.00], // #00f3ff
+        blue:     [0.15, 0.55, 1.00], // #2563eb / #3b82f6
+        pink:     [1.00, 0.18, 0.65], // #ec4899 / #ff2a85
+        orange:   [1.00, 0.48, 0.00], // #ff7700
+        hotPink:  [1.00, 0.25, 0.75], // #f43f5e
+        brightTeal: [0.00, 1.00, 0.88], // #14b8a6
+        amber:    [1.00, 0.62, 0.05], // #f59e0b
+        violet:   [0.85, 0.35, 1.00], // #c084fc
+        skyBlue:  [0.25, 0.65, 1.00]  // #38bdf8
+    };
+
+    // Exactly 10 smaller 3D cubes arranged at clearly separated distances
+    const ORBITAL_DATA = [
+        { radius: 72,  tilt: 0.28,  speed:  0.82, size: 11.0, color: NEON_PALETTE.cyan,       phase: 0.0,  bobAmp: 5 },
+        { radius: 84,  tilt: -0.24, speed: -0.76, size: 12.0, color: NEON_PALETTE.pink,       phase: 0.65, bobAmp: 6 },
+        { radius: 96,  tilt: 0.34,  speed:  0.70, size: 10.5, color: NEON_PALETTE.blue,       phase: 1.25, bobAmp: 7 },
+        { radius: 108, tilt: -0.31, speed: -0.64, size: 12.5, color: NEON_PALETTE.orange,     phase: 1.90, bobAmp: 6 },
+        { radius: 120, tilt: 0.22,  speed:  0.58, size: 11.0, color: NEON_PALETTE.purple,     phase: 2.55, bobAmp: 5 },
+        { radius: 132, tilt: -0.38, speed: -0.53, size: 12.0, color: NEON_PALETTE.brightTeal, phase: 3.20, bobAmp: 8 },
+        { radius: 144, tilt: 0.29,  speed:  0.48, size: 11.5, color: NEON_PALETTE.hotPink,    phase: 3.85, bobAmp: 7 },
+        { radius: 156, tilt: -0.20, speed: -0.43, size: 13.0, color: NEON_PALETTE.amber,      phase: 4.50, bobAmp: 8 },
+        { radius: 168, tilt: 0.36,  speed:  0.39, size: 11.5, color: NEON_PALETTE.skyBlue,    phase: 5.15, bobAmp: 6 },
+        { radius: 180, tilt: -0.27, speed: -0.35, size: 12.5, color: NEON_PALETTE.violet,     phase: 5.80, bobAmp: 7 }
+    ];
+
+    let renderer = null;
+    let centerCube = null; // ONE clearly recognizable large cube
+    let orbiters = [];     // 10 smaller 3D cubes visibly orbiting around it
+    const defaultCamPosition = [0, 0, 430];
+
+    // Engine Bootstrap
+    function init3DScene() {
+        const xtkAvailable = typeof X !== 'undefined' && typeof X.renderer3D !== 'undefined' && !window.__xtkLoadFailed;
+
+        if (xtkAvailable) {
+            initNativeXTK();
+        } else {
+            console.log("Using integrated WebGL XTK engine.");
+            initFallbackWebGL();
+        }
+
+        setTimeout(() => {
+            const loader = document.getElementById('loading');
+            loader.classList.add('fade-out');
+            setTimeout(() => loader.remove(), 700);
+        }, 500);
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       3-A: OFFICIAL XTK IMPLEMENTATION
+       Uses X.renderer3D and X.cube objects for all 3D geometry
+       ───────────────────────────────────────────────────────────── */
+    function initNativeXTK() {
+        document.getElementById('status-text').textContent = 'XTK 3D · ACTIVE';
+
+        const container = document.getElementById('xtk-container');
+        renderer = new X.renderer3D();
+        renderer.container = container;
+        renderer.init();
+
+        // 1. One clearly recognizable large solid XTK cube in the center.
+        centerCube = new X.cube();
+        centerCube.lengthX = centerCube.lengthY = centerCube.lengthZ = 48;
+        centerCube.color = [...NEON_PALETTE.purple];
+        centerCube.opacity = 1.0;
+        centerCube.center = [0, 0, 0];
+        renderer.add(centerCube);
+
+        // 2. Ten smaller XTK cubes. Their initial positions are applied with
+        // XTK transforms BEFORE the first render, then each frame moves them
+        // by a delta translation. This avoids changing .center after render.
+        orbiters = [];
+        for (let i = 0; i < ORBITAL_DATA.length; i++) {
+            const data = ORBITAL_DATA[i];
+            const angle = data.phase;
+            const startX = Math.cos(angle) * data.radius;
+            const startZ = Math.sin(angle) * data.radius * Math.cos(data.tilt);
+            const startY = Math.sin(angle) * data.radius * Math.sin(data.tilt);
+
+            const cube = new X.cube();
+            cube.lengthX = cube.lengthY = cube.lengthZ = data.size;
+            cube.color = [...data.color];
+            cube.opacity = 1.0;
+
+            cube.transform.translateX(startX);
+            cube.transform.translateY(startY);
+            cube.transform.translateZ(startZ);
+            renderer.add(cube);
+
+            orbiters.push({
+                obj: cube,
+                radius: data.radius,
+                tilt: data.tilt,
+                speed: data.speed,
+                phase: data.phase,
+                bobAmp: data.bobAmp,
+                baseColor: [...data.color],
+                lastPos: [startX, startY, startZ]
+            });
+        }
+
+        // Pull the camera back enough that all ten orbital paths remain visible.
+        renderer.camera.position = [...defaultCamPosition];
+
+        renderer.onRender = function() {
+            sceneTime += 0.018;
+
+            // Center cube: slow multi-axis rotation. Keep its origin fixed so
+            // translation and rotation never interfere with one another.
+            centerCube.transform.rotateX(0.28);
+            centerCube.transform.rotateY(0.48);
+            centerCube.transform.rotateZ(0.16);
+
+            if (rainbowMode) {
+                centerCube.color = hsvToRgb((sceneTime * 0.12) % 1, 0.90, 0.98);
+            } else {
+                const pulse = Math.sin(sceneTime * 2.4) * 0.08 + 0.92;
+                centerCube.color = [
+                    NEON_PALETTE.purple[0] * pulse,
+                    NEON_PALETTE.purple[1] * pulse,
+                    NEON_PALETTE.purple[2] * pulse
+                ];
+            }
+
+            // Smaller cubes: real XTK transform-based orbital motion.
+            for (let i = 0; i < orbiters.length; i++) {
+                const orb = orbiters[i];
+                let currentRadius = orb.radius;
+
+                if (flyMode) {
+                    currentRadius += Math.sin(flyPhase) * 115;
+                }
+
+                const angle = sceneTime * orb.speed + orb.phase;
+                const posX = Math.cos(angle) * currentRadius;
+                const posZ = Math.sin(angle) * currentRadius * Math.cos(orb.tilt);
+                const posY = Math.sin(angle) * currentRadius * Math.sin(orb.tilt)
+                           + Math.sin(sceneTime * 1.8 + orb.phase) * orb.bobAmp;
+
+                // XTK translate* methods are additive, so move only by the delta
+                // from the previous frame. This produces a smooth closed orbit.
+                const dx = posX - orb.lastPos[0];
+                const dy = posY - orb.lastPos[1];
+                const dz = posZ - orb.lastPos[2];
+                orb.obj.transform.translateX(dx);
+                orb.obj.transform.translateY(dy);
+                orb.obj.transform.translateZ(dz);
+                orb.lastPos = [posX, posY, posZ];
+
+                if (rainbowMode) {
+                    orb.obj.color = hsvToRgb(
+                        (sceneTime * 0.15 + i / orbiters.length) % 1,
+                        0.92,
+                        0.98
+                    );
+                } else {
+                    orb.obj.color = [...orb.baseColor];
+                }
+            }
+
+            if (flyMode) {
+                flyPhase += 0.026;
+                if (flyPhase >= Math.PI) {
+                    flyMode = false;
+                    flyPhase = 0;
+                    if (!rainbowMode) {
+                        document.getElementById('status-text').textContent = 'XTK 3D · ACTIVE';
+                    }
+                }
+            }
+        };
+
+        // Start XTK only after every object and animation callback is ready.
+        renderer.render();
+        setupInteractiveControls(true);
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+       3-B: INTEGRATED WEBGL XTK ENGINE (FALLBACK / OFFLINE)
+       Provides identical solid 3D cubes, Phong lighting, and controls
+       ───────────────────────────────────────────────────────────── */
+    function initFallbackWebGL() {
+        document.getElementById('status-text').textContent = 'XTK 3D · READY';
+
+        const container = document.getElementById('xtk-container');
+        const canvas = document.createElement('canvas');
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        container.appendChild(canvas);
+
+        const gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: false })
+                || canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false });
+
+        if (!gl) {
+            console.error("WebGL not supported");
+            return;
+        }
+
+        function resizeGL() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        window.addEventListener('resize', resizeGL);
+        resizeGL();
+
+        // Shaders with Crisp Phong Diffuse + Rim Lighting
+        const vs = `
+            attribute vec3 aPos;
+            attribute vec3 aNorm;
+            uniform mat4 uMVP;
+            uniform mat4 uModel;
+            varying vec3 vNorm;
+            varying vec3 vPos;
+            void main() {
+                vNorm = mat3(uModel) * aNorm;
+                vPos = (uModel * vec4(aPos, 1.0)).xyz;
+                gl_Position = uMVP * vec4(aPos, 1.0);
+            }
+        `;
+        const fs = `
+            precision mediump float;
+            uniform vec4 uColor;
+            uniform vec3 uLightPos;
+            uniform float uGlowFactor;
+            varying vec3 vNorm;
+            varying vec3 vPos;
+            void main() {
+                vec3 n = normalize(vNorm);
+                vec3 l = normalize(uLightPos - vPos);
+                float diff = max(dot(n, l), 0.0);
+                float ambient = 0.40;
+                vec3 col = uColor.rgb * (ambient + diff * 0.75);
+
+                // Futuristic Rim Highlight
+                vec3 viewDir = normalize(-vPos);
+                float rim = 1.0 - max(dot(viewDir, n), 0.0);
+                rim = pow(rim, 2.8) * uGlowFactor;
+                col += uColor.rgb * rim * 0.65;
+
+                gl_FragColor = vec4(col, uColor.a);
+            }
+        `;
+
+        function compile(src, type) {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, src);
+            gl.compileShader(s);
+            return s;
+        }
+        const prog = gl.createProgram();
+        gl.attachShader(prog, compile(vs, gl.VERTEX_SHADER));
+        gl.attachShader(prog, compile(fs, gl.FRAGMENT_SHADER));
+        gl.linkProgram(prog);
+        gl.useProgram(prog);
+
+        const aPos = gl.getAttribLocation(prog, 'aPos');
+        const aNorm = gl.getAttribLocation(prog, 'aNorm');
+        const uMVP = gl.getUniformLocation(prog, 'uMVP');
+        const uModel = gl.getUniformLocation(prog, 'uModel');
+        const uColor = gl.getUniformLocation(prog, 'uColor');
+        const uLightPos = gl.getUniformLocation(prog, 'uLightPos');
+        const uGlowFactor = gl.getUniformLocation(prog, 'uGlowFactor');
+
+        // Cube geometry (36 vertices with normals)
+        const cubeVBO = new Float32Array([
+            // front
+            -1,-1, 1, 0,0,1,   1,-1, 1, 0,0,1,   1, 1, 1, 0,0,1,
+            -1,-1, 1, 0,0,1,   1, 1, 1, 0,0,1,  -1, 1, 1, 0,0,1,
+            // back
+            -1,-1,-1, 0,0,-1, -1, 1,-1, 0,0,-1,  1, 1,-1, 0,0,-1,
+            -1,-1,-1, 0,0,-1,  1, 1,-1, 0,0,-1,  1,-1,-1, 0,0,-1,
+            // top
+            -1, 1,-1, 0,1,0,  -1, 1, 1, 0,1,0,   1, 1, 1, 0,1,0,
+            -1, 1,-1, 0,1,0,   1, 1, 1, 0,1,0,   1, 1,-1, 0,1,0,
+            // bottom
+            -1,-1,-1, 0,-1,0,  1,-1,-1, 0,-1,0,  1,-1, 1, 0,-1,0,
+            -1,-1,-1, 0,-1,0,  1,-1, 1, 0,-1,0, -1,-1, 1, 0,-1,0,
+            // right
+             1,-1,-1, 1,0,0,   1, 1,-1, 1,0,0,   1, 1, 1, 1,0,0,
+             1,-1,-1, 1,0,0,   1, 1, 1, 1,0,0,   1,-1, 1, 1,0,0,
+            // left
+            -1,-1,-1, -1,0,0, -1,-1, 1, -1,0,0, -1, 1, 1, -1,0,0,
+            -1,-1,-1, -1,0,0, -1, 1, 1, -1,0,0, -1, 1,-1, -1,0,0,
+        ]);
+
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, cubeVBO, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 24, 0);
+        gl.enableVertexAttribArray(aNorm);
+        gl.vertexAttribPointer(aNorm, 3, gl.FLOAT, false, 24, 12);
+
+        gl.enable(gl.DEPTH_TEST);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.CULL_FACE);
+
+        // Matrix Math Helpers
+        const I = () => new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+        function mulMat(a, b) {
+            const out = new Float32Array(16);
+            for (let c = 0; c < 4; c++) {
+                for (let r = 0; r < 4; r++) {
+                    out[c*4+r] = a[r]*b[c*4] + a[4+r]*b[c*4+1] + a[8+r]*b[c*4+2] + a[12+r]*b[c*4+3];
+                }
+            }
+            return out;
+        }
+        function mPersp(fov, asp, n, f) {
+            const t = 1 / Math.tan(fov / 2), nf = 1 / (n - f);
+            return new Float32Array([t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)*nf,-1, 0,0,2*f*n*nf,0]);
+        }
+        function mTrans(x, y, z) { const m = I(); m[12]=x; m[13]=y; m[14]=z; return m; }
+        function mScale(s) { const m = I(); m[0]=m[5]=m[10]=s; return m; }
+        function mRotX(a) { const c=Math.cos(a), s=Math.sin(a), m=I(); m[5]=c; m[6]=s; m[9]=-s; m[10]=c; return m; }
+        function mRotY(a) { const c=Math.cos(a), s=Math.sin(a), m=I(); m[0]=c; m[2]=-s; m[8]=s; m[10]=c; return m; }
+        function mRotZ(a) { const c=Math.cos(a), s=Math.sin(a), m=I(); m[0]=c; m[1]=s; m[4]=-s; m[5]=c; return m; }
+
+        // Camera Orbit & Zoom State
+        let camYaw = 0;
+        let camPitch = 0.32;
+        let camDist = 430;
+        let isDragging = false;
+        let lastX = 0, lastY = 0;
+
+        canvas.addEventListener('mousedown', e => {
+            isDragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => isDragging = false);
+        window.addEventListener('mousemove', e => {
+            if (!isDragging) return;
+            const dx = e.clientX - lastX;
+            const dy = e.clientY - lastY;
+            camYaw -= dx * 0.005;
+            camPitch += dy * 0.005;
+            camPitch = Math.max(-1.45, Math.min(1.45, camPitch));
+            lastX = e.clientX;
+            lastY = e.clientY;
+        });
+        canvas.addEventListener('wheel', e => {
+            camDist += e.deltaY * 0.28;
+            camDist = Math.max(75, Math.min(650, camDist));
+        }, { passive: true });
+
+        // Touch support
+        canvas.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+        canvas.addEventListener('touchmove', e => {
+            if (isDragging && e.touches.length === 1) {
+                const dx = e.touches[0].clientX - lastX;
+                const dy = e.touches[0].clientY - lastY;
+                camYaw -= dx * 0.005;
+                camPitch += dy * 0.005;
+                camPitch = Math.max(-1.45, Math.min(1.45, camPitch));
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+            }
+        }, { passive: true });
+        canvas.addEventListener('touchend', () => isDragging = false, { passive: true });
+
+        function drawSolidCube(model, mvp, color, glow) {
+            gl.uniformMatrix4fv(uMVP, false, mvp);
+            gl.uniformMatrix4fv(uModel, false, model);
+            gl.uniform4fv(uColor, color);
+            gl.uniform1f(uGlowFactor, glow);
+            gl.drawArrays(gl.TRIANGLES, 0, 36);
+        }
+
+        // Render Frame
+        function frame() {
+            sceneTime += 0.022;
+
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            const proj = mPersp(Math.PI / 4.2, canvas.width / canvas.height, 1, 2000);
+            const eyeX = camDist * Math.sin(camYaw) * Math.cos(camPitch);
+            const eyeY = camDist * Math.sin(camPitch);
+            const eyeZ = camDist * Math.cos(camYaw) * Math.cos(camPitch);
+
+            const view = mulMat(mTrans(-eyeX, -eyeY, -eyeZ), mulMat(mRotX(camPitch), mRotY(camYaw)));
+            const vp = mulMat(proj, view);
+
+            gl.uniform3f(uLightPos, 140, 160, 220);
+
+            // 1. ONE Clearly Recognizable Large Solid Center Cube
+            const bobY = Math.sin(sceneTime * 1.5) * 6;
+            const coreColor = rainbowMode
+                ? hsvToRgb((sceneTime * 0.12) % 1, 0.90, 0.98)
+                : NEON_PALETTE.purple;
+
+            const pulse = Math.sin(sceneTime * 2.4) * 0.06 + 1.0;
+            const cModel = mulMat(mTrans(0, bobY, 0),
+                           mulMat(mRotY(sceneTime * 0.65),
+                           mulMat(mRotX(sceneTime * 0.40),
+                           mulMat(mRotZ(sceneTime * 0.20),
+                               mScale(24 * pulse)))));
+            const cMVP = mulMat(vp, cModel);
+            drawSolidCube(cModel, cMVP, [coreColor[0], coreColor[1], coreColor[2], 1.0], 1.5);
+
+            // 2. 10 Clearly Visible Smaller 3D Cubes Continuously Orbiting
+            for (let i = 0; i < ORBITAL_DATA.length; i++) {
+                const orb = ORBITAL_DATA[i];
+                let currentRadius = orb.radius;
+
+                if (flyMode) {
+                    currentRadius += Math.sin(flyPhase) * 150;
+                }
+
+                const angle = sceneTime * orb.speed + orb.phase;
+                const posX = Math.cos(angle) * currentRadius;
+                const posZ = Math.sin(angle) * currentRadius * Math.cos(orb.tilt);
+                const posY = Math.sin(angle) * currentRadius * Math.sin(orb.tilt)
+                           + Math.sin(sceneTime * 2.0 + orb.phase) * orb.bobAmp;
+
+                const orbColor = rainbowMode
+                    ? hsvToRgb((sceneTime * 0.15 + (i / ORBITAL_DATA.length)) % 1, 0.92, 0.98)
+                    : orb.color;
+
+                const oModel = mulMat(mTrans(posX, posY, posZ),
+                               mulMat(mRotY(sceneTime * 0.8),
+                               mulMat(mRotX(sceneTime * 0.6),
+                                   mScale(orb.size / 2))));
+                const oMVP = mulMat(vp, oModel);
+                drawSolidCube(oModel, oMVP, [orbColor[0], orbColor[1], orbColor[2], 1.0], 1.0);
+            }
+
+            // Fly Mode Timing
+            if (flyMode) {
+                flyPhase += 0.026;
+                if (flyPhase >= Math.PI) {
+                    flyMode = false;
+                    flyPhase = 0;
+                    if (!rainbowMode) document.getElementById('status-text').textContent = 'XTK 3D · READY';
+                }
+            }
+
+            requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+
+        window.__resetFallbackCamera = function() {
+            camYaw = 0;
+            camPitch = 0.32;
+            camDist = 430;
+        };
+
+        setupInteractiveControls(false);
+    }
+
+    /* ═════════════════════════════════════════════════════════════════
+       § 4 — INTERACTIVE CONTROLS (R, F, SPACE, DRAG, ZOOM)
+       ═════════════════════════════════════════════════════════════════ */
+    function setupInteractiveControls(isNativeXTK) {
+        // Toggle Rainbow Colors (Key: R)
+        function toggleRainbow() {
+            rainbowMode = !rainbowMode;
+            showToast(rainbowMode ? "🌈 Rainbow Spectrum ENABLED" : "🌈 Rainbow Mode DISABLED");
+            document.getElementById('status-text').textContent = rainbowMode ? 'RAINBOW MODE' : (isNativeXTK ? 'XTK 3D · ACTIVE' : 'XTK 3D · READY');
+        }
+
+        // Trigger Fly / Explode Outward and Return (Key: F)
+        function triggerFly() {
+            if (flyMode) return;
+            flyMode = true;
+            flyPhase = 0;
+            showToast("🚀 Cosmic Burst: Cubes Flying Outward!");
+            document.getElementById('status-text').textContent = 'BURST · FLYING';
+        }
+
+        // Reset Scene to Initial Vantage (Key: Space)
+        function resetScene() {
+            rainbowMode = false;
+            flyMode = false;
+            flyPhase = 0;
+            sceneTime = 0;
+
+            if (isNativeXTK && renderer && renderer.camera) {
+                renderer.camera.position = [defaultCamPosition[0], defaultCamPosition[1], defaultCamPosition[2]];
+            } else if (window.__resetFallbackCamera) {
+                window.__resetFallbackCamera();
+            }
+
+            showToast("↺ Scene Reset to Default Vantage");
+            document.getElementById('status-text').textContent = isNativeXTK ? 'XTK 3D · ACTIVE' : 'XTK 3D · READY';
+        }
+
+        // Keyboard Event Listeners
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            if (key === 'r') {
+                toggleRainbow();
+            } else if (key === 'f') {
+                triggerFly();
+            } else if (key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                resetScene();
+            }
+        });
+
+        // Click Event Listeners for HUD
+        document.getElementById('btn-rainbow').addEventListener('click', toggleRainbow);
+        document.getElementById('btn-fly').addEventListener('click', triggerFly);
+        document.getElementById('btn-reset').addEventListener('click', resetScene);
+    }
+
+    /* ═════════════════════════════════════════════════════════════════
+       § 5 — LIFECYCLE & INITIALIZATION
+       ═════════════════════════════════════════════════════════════════ */
+    window.addEventListener('resize', resizeCanvases);
+
+    window.addEventListener('load', () => {
+        resizeCanvases();
+        requestAnimationFrame(renderGalaxyBackground);
+        requestAnimationFrame(renderGlowLayer);
+
+        // Allow XTK script a moment to register, then start 3D engine
+        setTimeout(init3DScene, 120);
+    });
+    </script>
+</body>
+</html>
